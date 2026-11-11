@@ -15,6 +15,7 @@ Portfolio: Brinehold ide u dubinu, Moonstack u visinu, Thawline kroz vreme.
 | `art/originals/` | Originalni PNG iz Runway-a, uključujući ponovljene (`_v2`) i ručno ispravljene (`_fixed`) verzije |
 | `docs/Moonstack-wiki.pdf` | PDF wikija, A4, svako poglavlje na novoj strani |
 | `tools/` | Skripte za webp, print verziju i PDF |
+| `prototype/` | Igrivi prototip statike za desktop: jedan kraj, jedan lunarni ciklus (vidi `prototype/README.md`) |
 
 Objavljeni wiki: https://claude.ai/artifact/L6jMoyYeNZ7VwWuq2Y85Pt (privatan, deli se preko Share menija).
 

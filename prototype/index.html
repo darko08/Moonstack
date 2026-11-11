@@ -1,0 +1,334 @@
+<meta charset="utf-8">
+<title>Moonstack Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: desktop-first war table. Top bar = almanac (resources, moon, Wen Moon). Left = the ward skyline (canvas) with the log under it.
+   Right = your tower's ledger: statics, build, army, target. Single deliberate dark theme shared with the Moonstack wiki. */
+:root{
+  color-scheme:dark;
+  --night:#0a0d22; --indigo:#121838; --indigo2:#1a2150; --line:#2c3570; --line2:#3d4890;
+  --silver:#e3e7f6; --mist:#a2abd0; --dim:#7f88b4; --lantern:#f2b65c; --ember:#ee6a4c; --jade:#7fc9a4; --moon:#7286dc;
+  --f-display:'Cormorant Garamond',Georgia,serif; --f-body:'Hanken Grotesk',system-ui,sans-serif; --f-mono:'DM Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--night);color:var(--silver);font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{max-width:1500px;margin:0 auto;padding-block:12px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+button{font-family:var(--f-body)}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:1px solid var(--line);background:linear-gradient(180deg,var(--indigo2),var(--indigo));padding:10px 14px}
+.logo{font-family:var(--f-display);font-size:26px;font-weight:700;color:var(--lantern);letter-spacing:.06em;line-height:1}
+.logo small{display:block;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.16em;color:var(--mist);font-weight:400;margin-top:3px}
+.res{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-family:var(--f-mono);font-size:12.5px;background:#0b0f2a;border:1px solid var(--line2);padding:4px 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill i{font-style:normal;color:var(--mist);margin-right:7px}
+.pill small{color:var(--dim);margin-left:6px}
+.pill.wen{border-color:var(--lantern);color:var(--lantern)}
+.seg{display:flex;border:1px solid var(--line2)}
+.seg button{background:transparent;border:0;border-right:1px solid var(--line2);color:var(--mist);font-weight:700;font-size:12.5px;padding:6px 11px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--lantern);color:#1a1206}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:12px;align-items:start}
+.left{display:flex;flex-direction:column;gap:12px;min-width:0}
+canvas{display:block;width:100%;height:auto;border:1px solid var(--line);background:#0e1335;cursor:pointer}
+.panel{border:1px solid var(--line);background:linear-gradient(180deg,var(--indigo2),var(--indigo));padding:12px 14px;display:flex;flex-direction:column;gap:9px;min-width:0}
+.panel h2{margin:0;font-family:var(--f-mono);font-size:11.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--lantern);display:flex;justify-content:space-between;gap:8px}
+.panel h2 span{color:var(--mist);letter-spacing:.04em;text-transform:none}
+.right{display:flex;flex-direction:column;gap:12px}
+.mc{border:1px solid var(--line2);background:rgba(114,134,220,.08);padding:8px 10px;display:flex;flex-direction:column;gap:1px}
+.mc b{font-family:var(--f-mono);font-weight:500;font-size:12.5px;letter-spacing:.12em;color:var(--moon)}
+.mc span{font-size:13px}
+.mc.warn{border-color:var(--ember);background:rgba(238,106,76,.16);animation:pulse 1s infinite}
+.mc.warn b{color:var(--ember)}
+@keyframes pulse{50%{background:rgba(238,106,76,.34)}}
+.meter{height:9px;background:#0b0f2a;border:1px solid var(--line2);position:relative}
+.meter s{position:absolute;inset:0 auto 0 0;background:var(--jade)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13px}
+.kv span:nth-child(odd){color:var(--mist)}
+.kv span:nth-child(even){font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.btn{font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--lantern);background:linear-gradient(#f7c878,#c8892e);color:#1a1206;padding:7px 10px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--lantern)}
+.btn.danger{background:linear-gradient(#f28a6c,#c4462c);border-color:var(--ember);color:#1a0b06}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn small{display:block;font-family:var(--f-mono);font-weight:400;font-size:10.5px;letter-spacing:0;text-transform:none;opacity:.85}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.row .btn{flex:1}
+.builds{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.builds button{text-align:left;background:#0b0f2a;border:1px solid var(--line2);color:var(--silver);padding:6px 8px;cursor:pointer;display:flex;flex-direction:column;gap:1px}
+.builds button b{font-size:13px;display:flex;align-items:center;gap:6px}
+.builds button b i{width:10px;height:10px;display:inline-block}
+.builds button small{font-size:11px;color:var(--mist)}
+.builds button:hover:not(:disabled){border-color:var(--lantern)}
+.builds button:disabled{opacity:.4;cursor:not-allowed}
+.bar{height:5px;background:#0b0f2a;position:relative}
+.bar s{position:absolute;inset:0 auto 0 0;background:var(--lantern)}
+.msg{font-size:12.5px;color:var(--ember);min-height:17px}
+.log{height:150px;overflow-y:auto;font-size:12.5px;display:flex;flex-direction:column;gap:2px;font-family:var(--f-mono)}
+.log div{color:var(--mist)} .log div i{font-style:normal;color:var(--dim);margin-right:8px}
+.log .fall{color:var(--lantern)} .log .hit,.log .warn{color:var(--ember)} .log .good,.log .build{color:var(--jade)} .log .p{color:var(--silver)} .log .p.fall{color:var(--lantern)} .log .p.hit,.log .p.warn{color:var(--ember)} .log .p.good,.log .p.build{color:var(--jade)}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px}
+.debris div{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line)}
+[hidden]{display:none!important}
+.overlay{position:fixed;inset:0;background:rgba(5,7,22,.88);display:grid;place-items:center;z-index:30;padding:16px}
+.card{max-width:720px;width:100%;max-height:92vh;overflow:auto;border:1px solid var(--line2);background:var(--indigo);padding:22px 24px;display:flex;flex-direction:column;gap:12px;box-shadow:0 0 0 4px #0b0e26,0 0 0 5px #6b5126}
+.card h1{margin:0;font-family:var(--f-display);font-size:40px;line-height:1}
+.card p{margin:0;color:var(--mist);font-size:14.5px}
+.card ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:14.5px}
+.card table{border-collapse:collapse;width:100%;font-size:13.5px}
+.card th{font-family:var(--f-mono);font-weight:500;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--lantern);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line2)}
+.card td{padding:6px 8px;border-bottom:1px solid var(--line)}
+.card tr.me td{background:rgba(242,182,92,.12);color:#fff}
+.card td.n{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+button:focus-visible{outline:2px solid var(--lantern);outline-offset:2px}
+@media (max-width:1100px){.main{grid-template-columns:minmax(0,1fr)}.two{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="logo">MOONSTACK<small>PROTOTYPE · ONE WARD, ONE MOON</small></div>
+    <div class="res">
+      <span class="pill"><i>Bricks</i><span id="rB">0</span><small id="rBr"></small></span>
+      <span class="pill"><i>Stone</i><span id="rS">0</span><small id="rSr"></small></span>
+      <span class="pill"><i>Gas</i><span id="rG">0</span></span>
+      <span class="pill"><i>Moondust</i><span id="rD">0</span><small id="rDr"></small></span>
+    </div>
+    <div class="res">
+      <span class="pill"><i>Day</i><span id="cDay">0</span></span>
+      <span class="pill"><i id="cPhaseI">Moon</i><span id="cPhase">–</span></span>
+      <span class="pill"><i>Moonline</i><span id="cLine">–</span></span>
+      <span class="pill wen"><i>WEN MOON</i><span id="cWen">–</span></span>
+    </div>
+    <div class="seg" id="speed"><button type="button" data-v="0" aria-pressed="false">Pause</button><button type="button" data-v="1" aria-pressed="true">1×</button><button type="button" data-v="3" aria-pressed="false">3×</button></div>
+  </div>
+
+  <div class="main">
+    <div class="left">
+      <canvas id="cv" width="1060" height="600" aria-label="Ward skyline: nine towers, the Moonline, raids and debris. Click a tower to target it."></canvas>
+      <div class="two">
+        <div class="panel"><h2>Ward log</h2><div class="log" id="log" aria-live="polite"></div></div>
+        <div class="panel debris"><h2>Tower Fall debris <span id="feeLbl"></span></h2><div id="debris"></div></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="panel">
+        <h2>Statics <span id="sHead"></span></h2>
+        <div class="mc" id="sAlert"><b>STABLE</b><span>–</span></div>
+        <div class="meter"><s id="sInt"></s></div>
+        <div class="kv" id="sKv"></div>
+        <div class="seg" id="lev"><button type="button" data-v="1">No scaffold</button><button type="button" data-v="2">×2</button><button type="button" data-v="3">×3</button><button type="button" data-v="5">×5</button></div>
+        <div class="row">
+          <button class="btn ghost" type="button" id="bButt">Buttress<small id="bButtC"></small></button>
+          <button class="btn ghost" type="button" id="bNet">Stop-Loss<small id="bNetC"></small></button>
+          <button class="btn ghost" type="button" id="bFound">Foundation<small id="bFoundC"></small></button>
+        </div>
+        <button class="btn ghost" type="button" id="bStrip">Remove scaffold floors <small>50% refund, clears Margin Call</small></button>
+      </div>
+
+      <div class="panel">
+        <h2>Build floor <span id="bHead"></span></h2>
+        <div class="bar" id="bProgWrap"><s id="bProg" style="width:0"></s></div>
+        <div class="builds" id="builds"></div>
+        <div class="msg" id="msg" role="status"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Army <span id="aHead"></span></h2>
+        <div class="row">
+          <button class="btn ghost" type="button" id="tCat">Train catapult<small>150 Bricks · 200 Stone</small></button>
+          <button class="btn ghost" type="button" id="tSap">Train sapper<small>80 Bricks · 60 Stone</small></button>
+        </div>
+        <h2 style="margin-top:4px">Target <span id="tName">click a tower</span></h2>
+        <div class="kv" id="tKv"></div>
+        <div class="row">
+          <button class="btn danger" type="button" id="aCat">Catapults<small id="aCatC">–</small></button>
+          <button class="btn danger" type="button" id="aSap">Sappers<small id="aSapC">–</small></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="intro">
+  <div class="card">
+    <h1>Moonstack</h1>
+    <p>Build your tower to the Moon. Everyone sees how tall you are, and everyone wants to bring you down. One ward, eight rivals, one lunar cycle (about 15 minutes).</p>
+    <ol>
+      <li><b>Build floors.</b> Each one costs more (floor price). Dust Nets above 60 m catch Moondust at night, ×3 on the Full Moon.</li>
+      <li><b>Your foundation sets the safe height.</b> To go higher, put up scaffolding: Leverage ×2, ×3 or ×5. You build faster, but hits hurt more.</li>
+      <li><b>Margin Call</b> means 2 hits to Liquidation. Add a Buttress, hang Stop-Loss nets, or take the scaffold floors down.</li>
+      <li><b>Attack.</b> Click a tower. Catapults drain the integrity of scaffolded towers. Sappers lower the foundation, which lowers the safe height.</li>
+      <li><b>Tower Fall.</b> When a tower is liquidated, debris lands on nearby plots. Send haulers first.</li>
+      <li><b>Perigee Night.</b> The Moonline sinks to 225 m. Towers above it land on the Moon: +25% score.</li>
+    </ol>
+    <div class="row"><button class="btn" type="button" id="start">Start the season</button></div>
+  </div>
+</div>
+<div class="overlay" id="end" hidden><div class="card"><h1 id="endT">Perigee Night</h1><p id="endP"></p><div style="overflow-x:auto"><table id="endTbl"></table></div><div class="row"><button class="btn" type="button" id="again">Play again</button></div></div></div>
+
+<script src="engine.js"></script>
+<script>
+(function () {
+  'use strict';
+  const E = window.MoonEngine, T = E.T, $ = (s) => document.querySelector(s), $$ = (s) => Array.from(document.querySelectorAll(s));
+  const fmt = (n) => Math.floor(n).toLocaleString('en-US');
+  const DAY_PER_SEC = E.SEASON / 900;
+  const COL = { 'Quarry Hoist': '#8d8fae', 'Brick Kiln': '#c8703f', 'Gas Still': '#5fae8c', 'Dust Nets': '#b9c3ee', 'Archer Gallery': '#a9824a', 'Barracks': '#7a5e9c', 'Lightning Rod': '#d8c24a' };
+  let g, speed = 0, target = null, fx = [], shake = 0, lastLog = 0, running = false, vignette = 0;
+
+  /* ---------- canvas ---------- */
+  const cv = $('#cv'), cx = cv.getContext('2d'), W = cv.width, H = cv.height, GY = H - 64, VIEW = 340, PW = W / E.PLOTS, TW = 58;
+  const y = (m) => GY - m / VIEW * (GY - 34);
+  const px = (p) => p * PW + PW / 2;
+  function draw(now) {
+    const d = g.d, h = E.hourOf(d), night = E.isNight(d), dayK = Math.max(0, Math.sin((h - 5) / 14 * Math.PI));
+    cx.save(); if (shake > 0) { cx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake); shake *= 0.86; if (shake < .3) shake = 0; }
+    const sky = cx.createLinearGradient(0, 0, 0, GY);
+    sky.addColorStop(0, `rgb(${10 + dayK * 28},${13 + dayK * 30},${40 + dayK * 60})`); sky.addColorStop(1, `rgb(${28 + dayK * 110},${28 + dayK * 60},${72 + dayK * 60})`);
+    cx.fillStyle = sky; cx.fillRect(-10, -10, W + 20, H + 20);
+    // moon: descends with the Moonline, phase from age
+    const ml = E.moonline(d), my = Math.max(46, y(ml) - 40), mr = 34, a = E.moonAge(d) / E.SEASON;
+    cx.fillStyle = 'rgba(220,228,255,.10)'; cx.beginPath(); cx.arc(W - 90, my, mr + 16, 0, 7); cx.fill();
+    cx.fillStyle = '#20264f'; cx.beginPath(); cx.arc(W - 90, my, mr, 0, 7); cx.fill();
+    const k = Math.cos(2 * Math.PI * a), wax = a < .5; cx.fillStyle = '#e3e7f6'; cx.beginPath();
+    cx.ellipse(W - 90, my, mr, mr, 0, -Math.PI / 2, Math.PI / 2, !wax); cx.ellipse(W - 90, my, Math.abs(k) * mr, mr, 0, Math.PI / 2, -Math.PI / 2, wax ? k > 0 : k < 0); cx.fill();
+    // moonline
+    cx.font = '12px "DM Mono", monospace'; cx.textAlign = 'left';
+    if (ml <= VIEW) { cx.strokeStyle = '#7286dc'; cx.setLineDash([8, 6]); cx.lineWidth = 2; cx.beginPath(); cx.moveTo(0, y(ml)); cx.lineTo(W, y(ml)); cx.stroke(); cx.setLineDash([]); cx.fillStyle = '#b9c3ee'; cx.fillText(`MOONLINE ${Math.round(ml)} m`, 10, y(ml) - 7); }
+    else { cx.fillStyle = '#b9c3ee'; cx.fillText(`▲ MOONLINE ${Math.round(ml)} m (above view)`, 10, 20); }
+    cx.strokeStyle = 'rgba(255,255,255,.07)'; cx.lineWidth = 1; cx.fillStyle = 'rgba(162,171,208,.55)';
+    [100, 200, 300].forEach((m) => { cx.beginPath(); cx.moveTo(0, y(m)); cx.lineTo(W, y(m)); cx.stroke(); cx.fillText(`${m} m`, W - 46, y(m) - 4); });
+    // ground
+    cx.fillStyle = '#141836'; cx.fillRect(-10, GY, W + 20, H - GY + 10); cx.fillStyle = '#2a2f55'; cx.fillRect(-10, GY, W + 20, 3);
+    // debris piles
+    g.debris.forEach((p) => { const x = px(p.plot); cx.fillStyle = '#8a87a6'; for (let i = 0; i < 7; i++) cx.fillRect(x - 40 + (i * 37 + p.id * 13) % 76, GY - 5 - (i % 3) * 3, 9, 6);
+      cx.fillStyle = '#f2b65c'; cx.textAlign = 'center'; cx.fillText(`debris ${Math.max(0, (p.expires - d) * 24).toFixed(0)}h`, x, GY + 56); });
+    // towers
+    g.towers.forEach((t) => {
+      const x = px(t.plot), n = t.floors.length, s = T.safe(t), fh = E.FH / VIEW * (GY - 34), integ = T.integrity(t) / T.maxInt(t);
+      cx.fillStyle = '#3b3f63'; cx.fillRect(x - TW / 2 - 8, GY - 3, TW + 16, 8);
+      for (let i = 0; i < n; i++) { const fy = GY - (i + 1) * fh, over = i >= s; cx.fillStyle = COL[t.floors[i]] || '#888'; cx.globalAlpha = over ? .95 : .8; cx.fillRect(x - TW / 2, fy + 1, TW, fh - 1.5); cx.globalAlpha = 1;
+        if (over) { cx.fillStyle = `rgba(238,106,76,${Math.max(0, .75 - integ * .75)})`; cx.fillRect(x - TW / 2, fy + 1, TW, fh - 1.5); cx.strokeStyle = '#8a6a3a'; cx.lineWidth = 1.5; [-1, 1].forEach((sd) => { const sx = x + sd * (TW / 2 + 6); cx.beginPath(); cx.moveTo(sx - 4, fy); cx.lineTo(sx + 4, fy + fh); cx.moveTo(sx + 4, fy); cx.lineTo(sx - 4, fy + fh); cx.moveTo(sx - 4, fy); cx.lineTo(sx - 4, fy + fh); cx.moveTo(sx + 4, fy); cx.lineTo(sx + 4, fy + fh); cx.stroke(); }); } }
+      if (night) { cx.fillStyle = 'rgba(242,182,92,.9)'; for (let i = 0; i < n; i++) if ((i * 7 + t.id * 3) % 3) cx.fillRect(x - 4 + ((i * 5 + t.id) % 3 - 1) * 14, GY - (i + 1) * fh + fh * .35, 4, fh * .35); }
+      if (t.build && t.build.kind === 'floor') { const fy = GY - (n + 1) * fh; cx.strokeStyle = '#f2b65c'; cx.setLineDash([3, 3]); cx.strokeRect(x - TW / 2, fy + 1, TW, fh - 2); cx.setLineDash([]); cx.fillStyle = 'rgba(242,182,92,.35)'; cx.fillRect(x - TW / 2, fy + 1, TW * (1 - t.build.left / t.build.total), fh - 2); }
+      // safe line tick
+      cx.strokeStyle = '#e3e7f6'; cx.setLineDash([4, 3]); cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(x - TW / 2 - 14, GY - s * fh); cx.lineTo(x + TW / 2 + 14, GY - s * fh); cx.stroke(); cx.setLineDash([]);
+      if (t.isPlayer) { cx.strokeStyle = '#f2b65c'; cx.lineWidth = 2; cx.strokeRect(x - TW / 2 - 2, GY - n * fh - 1, TW + 4, n * fh + 2); }
+      if (target === t) { cx.strokeStyle = '#ee6a4c'; cx.lineWidth = 2; cx.setLineDash([6, 4]); cx.strokeRect(x - PW / 2 + 5, 28, PW - 10, GY - 20); cx.setLineDash([]); }
+      const top = GY - n * fh;
+      if (T.over(t) && T.hitsLeft(t) <= 2) { cx.fillStyle = '#ee6a4c'; cx.textAlign = 'center'; cx.font = '700 11px "Hanken Grotesk", sans-serif'; cx.fillText(Math.floor(now / 400) % 2 ? 'MARGIN CALL' : `${T.hitsLeft(t)} HIT${T.hitsLeft(t) === 1 ? '' : 'S'}`, x, top - 22); }
+      cx.textAlign = 'center'; cx.font = '12px "DM Mono", monospace'; cx.fillStyle = '#e3e7f6'; cx.fillText(`${Math.round(T.height(t))} m`, x, top - 7);
+      cx.font = '700 12.5px "Hanken Grotesk", sans-serif'; cx.fillStyle = t.isPlayer ? '#f2b65c' : '#e3e7f6'; cx.fillText(t.name, x, GY + 22);
+      cx.font = '11px "DM Mono", monospace'; cx.fillStyle = '#a2abd0'; cx.fillText(`${t.title} · ${t.masons}`, x, GY + 38);
+    });
+    // raids in flight
+    g.raids.forEach((r) => { if (r.state !== 'out') return; const a = g.towers[r.from], b = g.towers[r.to], k2 = Math.min(1, (d - r.launched) / (r.arrive - r.launched)); const x1 = px(a.plot), x2 = px(b.plot);
+      if (r.kind === 'cat') { const xx = x1 + (x2 - x1) * k2, y1 = y(T.height(a)), y2 = y(T.height(b) * .8), yy = y1 + (y2 - y1) * k2 - Math.sin(k2 * Math.PI) * 120; cx.fillStyle = a.isPlayer ? '#f2b65c' : '#ee6a4c'; for (let i = 0; i < Math.min(5, r.n); i++) { cx.beginPath(); cx.arc(xx - i * 7 * Math.sign(x2 - x1 || 1), yy + i * 4, 4, 0, 7); cx.fill(); } }
+      else { const xx = x1 + (x2 - x1) * k2; cx.fillStyle = a.isPlayer ? '#f2b65c' : '#ee6a4c'; for (let i = 0; i < Math.min(6, r.n); i++) cx.fillRect(xx - i * 6 * Math.sign(x2 - x1 || 1), GY + 5 + (i % 2) * 4, 4, 4); } });
+    // fx
+    fx = fx.filter((f) => f.life > 0);
+    fx.forEach((f) => { f.life -= 1 / 60;
+      if (f.kind === 'block') { f.vy += .35; f.x += f.vx; f.y += f.vy; f.r += f.vr; if (f.y > GY - 6) { f.y = GY - 6; f.vy = 0; f.vx *= .7; f.vr = 0; } cx.save(); cx.translate(f.x, f.y); cx.rotate(f.r); cx.globalAlpha = Math.min(1, f.life); cx.fillStyle = f.c; cx.fillRect(-f.w / 2, -f.h / 2, f.w, f.h); cx.restore(); cx.globalAlpha = 1; }
+      else if (f.kind === 'bolt') { cx.strokeStyle = `rgba(255,255,255,${Math.min(1, f.life * 3)})`; cx.lineWidth = 3; cx.beginPath(); let bx = f.x + 30, by = 0; cx.moveTo(bx, by); while (by < f.y) { by += 26; bx += (f.x - bx) * .4 + (Math.random() - .5) * 26; cx.lineTo(bx, Math.min(by, f.y)); } cx.stroke(); cx.fillStyle = `rgba(255,255,255,${f.life * .25})`; cx.fillRect(0, 0, W, H); }
+      else if (f.kind === 'txt') { f.y -= .4; cx.globalAlpha = Math.min(1, f.life); cx.fillStyle = f.c; cx.font = '700 14px "Hanken Grotesk", sans-serif'; cx.textAlign = 'center'; cx.fillText(f.t, f.x, f.y); cx.globalAlpha = 1; } });
+    if (vignette > 0) { const vg = cx.createRadialGradient(W / 2, H / 2, H * .3, W / 2, H / 2, W * .65); vg.addColorStop(0, 'rgba(238,106,76,0)'); vg.addColorStop(1, `rgba(238,106,76,${.32 * vignette})`); cx.fillStyle = vg; cx.fillRect(0, 0, W, H); }
+    cx.restore();
+  }
+  cv.addEventListener('click', (e) => { const r = cv.getBoundingClientRect(); const p = Math.floor((e.clientX - r.left) / r.width * E.PLOTS); const t = g.towers[p]; target = t && !t.isPlayer ? t : null; ui(); });
+
+  /* ---------- events from engine ---------- */
+  function consume() {
+    g.events.forEach((ev) => { const t = g.towers[ev.tower]; const fh = E.FH / VIEW * (GY - 34);
+      if (ev.type === 'fall') { ev.floors.forEach((f, i) => { for (let j = 0; j < 3; j++) fx.push({ kind: 'block', x: px(t.plot) - 18 + j * 18, y: GY - (ev.from + i + 1) * fh, vx: ev.dir * (1.5 + Math.random() * 3 + i * .5), vy: -2 - Math.random() * 3, r: 0, vr: (Math.random() - .5) * .3, w: 18, h: fh - 2, c: COL[f], life: 4 + Math.random() * 2 }); });
+        fx.push({ kind: 'txt', x: px(t.plot), y: y(T.height(t)) - 40, t: 'LIQUIDATED', c: '#ee6a4c', life: 2.5 }); shake = 14; }
+      else if (ev.type === 'impact') { if (ev.hits) { shake = Math.max(shake, t.isPlayer ? 9 : 4); fx.push({ kind: 'txt', x: px(t.plot), y: y(T.height(t)) - 26, t: ev.kind === 'cat' ? `−${ev.hits} hit${ev.hits > 1 ? 's' : ''}` : `foundation −${ev.hits}`, c: '#ee6a4c', life: 1.6 }); } else fx.push({ kind: 'txt', x: px(t.plot), y: y(T.height(t)) - 26, t: 'miss', c: '#a2abd0', life: 1.2 }); }
+      else if (ev.type === 'storm') { fx.push({ kind: 'bolt', x: px(t.plot), y: y(T.height(t)), life: .45 }); if (ev.absorbed) fx.push({ kind: 'txt', x: px(t.plot), y: y(T.height(t)) - 26, t: 'rod', c: '#d8c24a', life: 1.2 }); }
+      else if (ev.type === 'grab') fx.push({ kind: 'txt', x: px(ev.plot), y: GY - 14, t: `${t.name} hauled it`, c: '#a2abd0', life: 1.8 });
+      else if (ev.type === 'margin') vignette = 1;
+      else if (ev.type === 'end') showEnd(); });
+    g.events.length = 0;
+  }
+
+  /* ---------- UI ---------- */
+  const costTxt = (c) => `${c.bricks ? fmt(c.bricks) + ' Bricks' : ''}${c.bricks && c.stone ? ' · ' : ''}${c.stone ? fmt(c.stone) + ' Stone' : ''}`;
+  const can = (c) => g.player.bricks >= c.bricks && g.player.stone >= c.stone;
+  function say(err) { $('#msg').textContent = err || ''; if (err) { clearTimeout(say.t); say.t = setTimeout(() => { $('#msg').textContent = ''; }, 3200); } ui(); }
+  $('#builds').innerHTML = Object.entries(E.TYPES).map(([n, v]) => `<button type="button" data-t="${n}"><b><i style="background:${COL[n]}"></i>${n}</b><small>${v.desc}</small></button>`).join('');
+  $$('#builds button').forEach((b) => b.addEventListener('click', () => say(E.act.build(g, g.player, b.dataset.t))));
+  $$('#lev button').forEach((b) => b.addEventListener('click', () => say(E.act.setLev(g, g.player, +b.dataset.v))));
+  $('#bButt').addEventListener('click', () => say(E.act.buttress(g, g.player)));
+  $('#bNet').addEventListener('click', () => say(E.act.net(g, g.player)));
+  $('#bFound').addEventListener('click', () => say(E.act.foundation(g, g.player)));
+  $('#bStrip').addEventListener('click', () => say(E.act.removeScaffold(g, g.player)));
+  $('#tCat').addEventListener('click', () => say(E.act.train(g, g.player, 'cat')));
+  $('#tSap').addEventListener('click', () => say(E.act.train(g, g.player, 'sap')));
+  $('#aCat').addEventListener('click', () => target && say(E.act.attack(g, g.player, target, 'cat')));
+  $('#aSap').addEventListener('click', () => target && say(E.act.attack(g, g.player, target, 'sap')));
+  $('#debris').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) say(E.act.haul(g, g.player, +b.dataset.id)); });
+  $$('#speed button').forEach((b) => b.addEventListener('click', () => { speed = +b.dataset.v; $$('#speed button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
+
+  function ui() {
+    const p = g.player, d = g.d, n = p.floors.length + 1, over = T.over(p), hl = T.hitsLeft(p), integ = Math.max(0, T.integrity(p)), mx = T.maxInt(p);
+    $('#rB').textContent = fmt(p.bricks); $('#rBr').textContent = `+${fmt(T.bricksPerDay(p))}/d`; $('#rS').textContent = fmt(p.stone); $('#rSr').textContent = `+${fmt(T.stonePerDay(p))}/d`; $('#rG').textContent = fmt(p.gas);
+    $('#rD').textContent = fmt(p.dustBank); $('#rDr').textContent = p.dustRoof >= 1 ? `+${fmt(p.dustRoof)} on roof` : '';
+    const hh = Math.floor(E.hourOf(d)); $('#cDay').textContent = `${Math.floor(d) + 1} · ${String(hh).padStart(2, '0')}:00 ${E.isNight(d) ? 'night' : 'day'}`;
+    $('#cPhase').textContent = E.phaseName(d) + (E.isFull(d) ? ' · dust ×3' : ''); $('#cLine').textContent = `${Math.round(E.moonline(d))} m`;
+    const left = (E.SEASON - d) / DAY_PER_SEC; $('#cWen').textContent = `${Math.floor(left / 60)}m ${String(Math.floor(left % 60)).padStart(2, '0')}s`;
+    // statics
+    $('#sHead').textContent = `${Math.round(T.height(p))} m · ATH ${Math.round(p.ath)} m`;
+    const al = $('#sAlert');
+    if (!over) { al.className = 'mc'; al.innerHTML = `<b>STABLE</b><span>Under the safe height. Hits only crack floors.</span>`; }
+    else if (hl <= 2) { al.className = 'mc warn'; al.innerHTML = `<b>MARGIN CALL</b><span>${hl} hit${hl === 1 ? '' : 's'} to Liquidation. Brace, net, or take the scaffold down.</span>`; }
+    else { al.className = 'mc'; al.innerHTML = `<b>LEVERAGED ×${p.lev}</b><span>${hl} hits to Liquidation. ${over} floor${over > 1 ? 's' : ''} on scaffold.</span>`; }
+    vignette = over && hl <= 2 ? Math.max(vignette, .6) : vignette * .9;
+    const m = $('#sInt'); m.style.width = integ / mx * 100 + '%'; m.style.background = integ / mx > .5 ? 'var(--jade)' : integ / mx > .25 ? 'var(--lantern)' : 'var(--ember)';
+    $('#sKv').innerHTML = `<span>Foundation</span><span>Lv ${p.fLv} · safe ${Math.round(T.safe(p) * E.FH)} m (${T.safe(p)} floors)</span><span>Integrity</span><span>${Math.round(integ)} / ${mx}</span><span>Damage per hit</span><span>${T.dmgPerHit(p)}</span><span>Stop-Loss saves roof dust</span><span>${Math.min(60, p.nets * 15)}%</span><span>Dust per night at this height</span><span>${T.dustPerNight(p, d).toFixed(1)}</span>`;
+    $$('#lev button').forEach((b) => { b.setAttribute('aria-pressed', String(+b.dataset.v === p.lev)); b.disabled = +b.dataset.v === 1 && over > 0; });
+    const bc = T.buttressCost(p), nc = T.netCost(p), fc = T.foundCost(p);
+    $('#bButtC').textContent = p.buttress >= 4 ? 'max' : `${p.buttress}/4 · ${costTxt(bc)}`; $('#bButt').disabled = p.buttress >= 4 || !can(bc);
+    $('#bNetC').textContent = p.nets >= 4 ? 'max' : `${p.nets}/4 · ${costTxt(nc)}`; $('#bNet').disabled = p.nets >= 4 || !can(nc);
+    $('#bFoundC').textContent = `Lv ${p.fLv + 1} · ${costTxt(fc)}`; $('#bFound').disabled = !!p.build || !can(fc);
+    $('#bStrip').disabled = !over;
+    // build
+    const c = T.floorCost(n), needLev = n > T.safe(p) && p.lev === 1;
+    $('#bHead').textContent = p.build ? `${p.build.kind === 'floor' ? 'Floor ' + n + ': ' + p.build.type : 'Foundation Lv ' + (p.fLv + 1)}…` : `Floor ${n} · ${costTxt(c)}${n > T.safe(p) ? ' · on scaffold' : ''}`;
+    $('#bProg').style.width = p.build ? (1 - p.build.left / p.build.total) * 100 + '%' : '0';
+    $$('#builds button').forEach((b) => { b.disabled = !!p.build || !can(c) || needLev; });
+    if (!p.build && needLev && !$('#msg').textContent) $('#msg').textContent = 'At the safe height. Pick a Leverage to scaffold higher, or raise the Foundation.';
+    else if (!needLev && $('#msg').textContent.startsWith('At the safe')) $('#msg').textContent = '';
+    // army
+    $('#aHead').textContent = `Catapults ${p.cat}${p.catOut ? ' (+' + p.catOut + ' out)' : ''} · Sappers ${p.sap}${p.sapOut ? ' (+' + p.sapOut + ' out)' : ''} · cap ${T.cap(p)}`;
+    $('#tCat').disabled = p.cat + p.catOut >= T.cap(p) || !can(T.unitCost('cat')); $('#tSap').disabled = p.sap + p.sapOut >= T.cap(p) || !can(T.unitCost('sap'));
+    if (target) { const t = target, th = T.hitsLeft(t); $('#tName').textContent = `${t.name} · ${t.title}`;
+      $('#tKv').innerHTML = `<span>Height / safe height</span><span>${Math.round(T.height(t))} m / ${Math.round(T.safe(t) * E.FH)} m</span><span>Scaffold</span><span>${T.over(t) ? T.over(t) + ' floors · ×' + t.lev : 'none'}</span><span>Hits to Liquidation</span><span>${th === Infinity ? '— (no scaffold)' : th}</span><span>Archer Galleries</span><span>${T.count(t, 'Archer Gallery')}</span><span>Moondust banked</span><span>${fmt(t.dustBank)}</span>`;
+      const f1 = E.gasFee(g, p, t, Math.max(1, p.cat)), f2 = E.gasFee(g, p, t, Math.max(3, p.sap));
+      $('#aCatC').textContent = `${p.cat} ready · gas fee ${f1}`; $('#aCat').disabled = p.cat < 1 || p.gas < f1;
+      $('#aSapC').textContent = `${p.sap} ready (min 3) · gas fee ${f2}`; $('#aSap').disabled = p.sap < 3 || p.gas < f2; }
+    else { $('#tName').textContent = 'click a tower'; $('#tKv').innerHTML = ''; $('#aCat').disabled = $('#aSap').disabled = true; $('#aCatC').textContent = $('#aSapC').textContent = '–'; }
+    $('#feeLbl').textContent = `ward gas ×${g.wardFee.toFixed(2)}`;
+    // debris
+    $('#debris').innerHTML = g.debris.length ? g.debris.map((x) => { const sent = g.haulers.some((hh2) => hh2.from === p.id && hh2.pile === x.id); return `<div><span>Plot ${x.plot + 1} · ${fmt(x.bricks)} Bricks · ${fmt(x.stone)} Stone · ${fmt(x.dust)} Dust</span><button class="btn" type="button" data-id="${x.id}" ${sent ? 'disabled' : ''}>${sent ? 'On the way' : 'Send haulers'}</button></div>`; }).join('') : '<span style="color:var(--mist);font-size:12.5px">Nothing on the ground. Liquidate a scaffolded tower and race for what falls.</span>';
+    // log
+    if (g.log.length !== lastLog || (g.log.length && g.log[g.log.length - 1] !== ui.last)) { ui.last = g.log[g.log.length - 1]; lastLog = g.log.length; const el = $('#log'); el.innerHTML = g.log.slice(-60).map((l) => `<div class="${l.kind}${l.p ? ' p' : ''}"><i>D${Math.floor(l.d) + 1}</i>${l.msg}</div>`).join(''); el.scrollTop = el.scrollHeight; }
+  }
+
+  function showEnd() {
+    const me = g.results.findIndex((r) => r.t.isPlayer), r = g.results[me];
+    $('#endT').textContent = r.landed ? 'You landed on the Moon' : 'Perigee Night';
+    $('#endP').textContent = `You finished ${me + 1}${['st', 'nd', 'rd'][me] || 'th'} of 9 with ${fmt(r.total)} points. ${r.landed ? 'Your roof was above the Moonline: +25%.' : `The Moonline was ${Math.round(E.moonline(E.SEASON))} m; your tower stood at ${Math.round(T.height(r.t))} m.`}`;
+    $('#endTbl').innerHTML = '<tr><th>#</th><th>Tower</th><th>Title</th><th>Height</th><th>ATH</th><th>Moondust</th><th>Toppler</th><th>Landed</th><th>Score</th></tr>' + g.results.map((x, i) => `<tr class="${x.t.isPlayer ? 'me' : ''}"><td class="n">${i + 1}</td><td>${x.t.name}</td><td>${x.t.title}</td><td class="n">${Math.round(T.height(x.t))} m</td><td class="n">${Math.round(x.t.ath)} m</td><td class="n">${fmt(x.t.dustBank)}</td><td class="n">${fmt(x.t.topple)}</td><td>${x.landed ? 'yes' : '–'}</td><td class="n">${fmt(x.total)}</td></tr>`).join('');
+    $('#end').hidden = false; speed = 0;
+  }
+
+  function newGame() { g = E.createGame({ seed: (Date.now() % 100000) + 1, playerName: 'You', playerMasons: 12 }); target = null; fx = []; lastLog = 0; window.__g = g; ui(); }
+  let prev = performance.now(), acc = 0;
+  function frame(now) { const dt = Math.min(.1, (now - prev) / 1000); prev = now;
+    if (running && speed > 0 && !g.ended) { E.step(g, dt * DAY_PER_SEC * speed); consume(); }
+    draw(now); acc += dt; if (acc > .12) { acc = 0; ui(); } requestAnimationFrame(frame); }
+  $('#start').addEventListener('click', () => { $('#intro').hidden = true; running = true; speed = 1; });
+  $('#again').addEventListener('click', () => { $('#end').hidden = true; newGame(); running = true; speed = 1; $$('#speed button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === '1'))); });
+  newGame(); requestAnimationFrame(frame);
+})();
+</script>
