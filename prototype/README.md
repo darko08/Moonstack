@@ -26,7 +26,7 @@ python3 -m http.server 8770
 
 Brojevi su podešeni za jednu kratku sesiju, pa se razlikuju od wikija:
 
-- Sezona je jedan ciklus (29,53 dana), a Moonline pada sa 825 m na 225 m.
+- Sezona je jedan ciklus (29,53 dana), a Moonline pada sa 825 m na 215 m.
 - Svi imaju osnovnih 150 Bricks dnevno, uz 40 po Mason-u.
 - Floor price: Bricks 200 × 1,09ⁿ, Stone 300 × 1,11ⁿ.
 - Nema senki, mostova, vazdušnih jedinica, tržišta ni koalicija.
@@ -35,3 +35,14 @@ Brojevi su podešeni za jednu kratku sesiju, pa se razlikuju od wikija:
 
 - **Wolf i Moon-Eater:** jedinice su skuplje (×1,2 i ×1,35), botovi ih češće biraju za metu, a male titule (Moth, Toad, Hare) imaju +12% šanse za pogodak protiv njih.
 - **Moth:** Dust Nets +25%, +2 mesta za jedinice, sapperi kreću već od 2. Noćni napad je Hidden Raid: +20% uspeha, manji gubici i pljačka 6% do 18% Bricks, Stone i Moondust-a mete. Botovi ga retko gađaju dok je ispod 160 m.
+
+## Balans, druga runda: rizik mora da se isplati
+
+- Sletanje na Mesec sada nosi +50% skora (ranije +25%).
+- Temelj je skuplji (Stone × 1,6 po nivou), pa sigurna gradnja staje tik ispod Moonline-a. Preko linije se stiže samo na skelama.
+- Skele su izdržljivije: integritet se oporavlja 10 na dan (ranije 6).
+- Popravka temelja posle podkopa košta 40% i traje kraće.
+- Ista kula može biti opljačkana u Hidden Raid-u najviše jednom u 1,5 dana.
+- Botovi: Tiangou više ne igra na ×5 nego na ×3, botovi dodaju kontrafore dok su na skelama, a u poslednja 4 dana idu na „final push“ preko linije.
+
+Simulacija 60 sezona (`node prototype/sim.js 60`): Wolf sleti u 62% sezona, Hare na ×2 u 45%, oprezni Owl nikad. Bot na ×5 je uvek poslednji.

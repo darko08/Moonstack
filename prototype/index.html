@@ -161,7 +161,7 @@ button:focus-visible{outline:2px solid var(--lantern);outline-offset:2px}
       <li><b>Margin Call</b> means 2 hits to Liquidation. Add a Buttress, hang Stop-Loss nets, or take the scaffold floors down.</li>
       <li><b>Attack.</b> Small titles (Moth, Toad, Hare) hit Wolf and Moon-Eater harder; a Moth raiding at night arrives unseen and plunders. Click a tower. Catapults drain the integrity of scaffolded towers. Sappers lower the foundation, which lowers the safe height.</li>
       <li><b>Tower Fall.</b> When a tower is liquidated, debris lands on nearby plots. Send haulers first.</li>
-      <li><b>Perigee Night.</b> The Moonline sinks to 225 m. Towers above it land on the Moon: +25% score.</li>
+      <li><b>Perigee Night.</b> The Moonline sinks to 215 m. Towers above it land on the Moon: +50% score. Safe building alone stalls just below it.</li>
     </ol>
     <div class="row"><button class="btn" type="button" id="start">Start the season</button></div>
   </div>
@@ -317,7 +317,7 @@ button:focus-visible{outline:2px solid var(--lantern);outline-offset:2px}
   function showEnd() {
     const me = g.results.findIndex((r) => r.t.isPlayer), r = g.results[me];
     $('#endT').textContent = r.landed ? 'You landed on the Moon' : 'Perigee Night';
-    $('#endP').textContent = `You finished ${me + 1}${['st', 'nd', 'rd'][me] || 'th'} of 9 with ${fmt(r.total)} points. ${r.landed ? 'Your roof was above the Moonline: +25%.' : `The Moonline was ${Math.round(E.moonline(E.SEASON))} m; your tower stood at ${Math.round(T.height(r.t))} m.`}`;
+    $('#endP').textContent = `You finished ${me + 1}${['st', 'nd', 'rd'][me] || 'th'} of 9 with ${fmt(r.total)} points. ${r.landed ? 'Your roof was above the Moonline: +50%.' : `The Moonline was ${Math.round(E.moonline(E.SEASON))} m; your tower stood at ${Math.round(T.height(r.t))} m.`}`;
     $('#endTbl').innerHTML = '<tr><th>#</th><th>Tower</th><th>Title</th><th>Height</th><th>ATH</th><th>Moondust</th><th>Toppler</th><th>Landed</th><th>Score</th></tr>' + g.results.map((x, i) => `<tr class="${x.t.isPlayer ? 'me' : ''}"><td class="n">${i + 1}</td><td>${x.t.name}</td><td>${x.t.title}</td><td class="n">${Math.round(T.height(x.t))} m</td><td class="n">${Math.round(x.t.ath)} m</td><td class="n">${fmt(x.t.dustBank)}</td><td class="n">${fmt(x.t.topple)}</td><td>${x.landed ? 'yes' : '–'}</td><td class="n">${fmt(x.total)}</td></tr>`).join('');
     $('#end').hidden = false; speed = 0;
   }

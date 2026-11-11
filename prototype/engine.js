@@ -5,6 +5,7 @@
   const FH = 9.33;                 // meters per floor
   const SEASON = 29.53;            // one lunar cycle, full moon to full moon
   const PLOTS = 9;
+  const LAND_BONUS = 1.5;          // score multiplier for a roof above the Moonline at Perigee Night
 
   const TYPES = {
     'Quarry Hoist':   { k: 'Q', desc: '+190 Stone/day' },
@@ -19,7 +20,7 @@
   function titleOf(m) { return m >= 100 ? 'Moon-Eater' : m >= 50 ? 'Wolf' : m >= 25 ? 'Owl' : m >= 10 ? 'Crane' : m >= 5 ? 'Hare' : m >= 2 ? 'Toad' : 'Moth'; }
   function rngOf(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
-  const moonline = (d) => 225 + 600 * Math.pow(Math.max(0, 1 - d / SEASON), 1.6);
+  const moonline = (d) => 215 + 610 * Math.pow(Math.max(0, 1 - d / SEASON), 1.6);
   const moonAge = (d) => (14.765 + d) % SEASON;               // season starts at full moon
   const isFull = (d) => { const a = moonAge(d); return a > 13.77 && a < 15.77; };
   const isNew = (d) => { const a = moonAge(d); return a < 1.5 || a > SEASON - 1.5; };
@@ -47,7 +48,7 @@
     dustPerNight: (t, d) => { const h = T.height(t); if (h < 60) return 0; return T.count(t, 'Dust Nets') * 4 * Math.pow(h / 100, 1.3) * (isFull(d) ? 3 : 1) * (t.title === 'Moth' ? 1.25 : 1); },
     floorCost: (n) => ({ bricks: Math.round(200 * Math.pow(1.09, n)), stone: Math.round(300 * Math.pow(1.11, n)) }),
     buildTime: (t, n) => 0.12 * Math.pow(1.045, n) / (n > T.safe(t) ? T.speedUp(t.lev) : 1),
-    foundCost: (t) => ({ bricks: Math.round(400 * Math.pow(1.3, t.fLv - 4)), stone: Math.round(900 * Math.pow(1.45, t.fLv - 4)) }),
+    foundCost: (t) => { const k = t.fLv < (t.fMax || 0) ? 0.4 : 1; return { bricks: Math.round(400 * Math.pow(1.3, t.fLv - 4) * k), stone: Math.round(900 * Math.pow(1.6, t.fLv - 4) * k) }; }, // repairing a sapped level costs 40%
     buttressCost: (t) => ({ bricks: 0, stone: 500 * (t.buttress + 1) }),
     netCost: (t) => ({ bricks: 0, stone: 250 * (t.nets + 1) }),
     upkeep: (t) => t && t.title === 'Moon-Eater' ? 1.35 : t && t.title === 'Wolf' ? 1.2 : 1,
@@ -66,9 +67,9 @@
     { name: 'Paperwing', masons: 15, ai: 'degen' },
     { name: 'Greyhowl', masons: 60, ai: 'balanced' },
     { name: 'Old Lantern', masons: 6, ai: 'careful' },
-    { name: 'Tiangou', masons: 120, ai: 'degen' },
+    { name: 'Tiangou', masons: 120, ai: 'bold' },
   ];
-  const AI = { careful: { lev: 1, maxOver: 0 }, balanced: { lev: 2, maxOver: 4 }, degen: { lev: 5, maxOver: 8 } };
+  const AI = { careful: { lev: 1, maxOver: 0 }, balanced: { lev: 2, maxOver: 4 }, degen: { lev: 5, maxOver: 8 }, bold: { lev: 3, maxOver: 6 } };
   const START = ['Quarry Hoist', 'Brick Kiln', 'Gas Still', 'Barracks', 'Archer Gallery', 'Quarry Hoist'];
 
   function mkTower(id, name, masons, isPlayer, ai) {
@@ -101,7 +102,7 @@
   function startFoundation(g, t) {
     if (t.build) return 'Already building.';
     const c = T.foundCost(t); if (!afford(t, c)) return 'Not enough Bricks or Stone.';
-    pay(t, c); t.build = { kind: 'found', type: 'Foundation', left: 0.5, total: 0.5 }; return null;
+    const bt = t.fLv < (t.fMax || 0) ? 0.2 : 0.5; pay(t, c); t.build = { kind: 'found', type: 'Foundation', left: bt, total: bt }; return null;
   }
   function addButtress(g, t) { if (t.buttress >= 4) return 'Max 4 buttresses.'; const c = T.buttressCost(t); if (!afford(t, c)) return 'Not enough Stone.'; pay(t, c); t.buttress++; return null; }
   function addNet(g, t) { if (t.nets >= 4) return 'Max 4 Stop-Loss nets.'; const c = T.netCost(t); if (!afford(t, c)) return 'Not enough Stone.'; pay(t, c); t.nets++; return null; }
@@ -184,9 +185,9 @@
     } else {
       const hid = hidden(a, r); let succ = 0; for (let i = 0; i < r.n; i++) if (g.rng() < 0.5 + raidBonus(g, a, b, r)) succ++;
       const lv = Math.floor(succ / 3), raidLv = Math.floor(succ / T.minSap(a)); let lost = 0; for (let i = 0; i < r.n; i++) if (g.rng() < (hid ? 0.12 : 0.3)) lost++; r.n -= lost;
-      if (lv) { b.fLv = Math.max(1, b.fLv - lv); a.raidPts += lv * 20; }
+      if (lv) { b.fMax = Math.max(b.fMax || 0, b.fLv); b.fLv = Math.max(1, b.fLv - lv); a.raidPts += lv * 20; }
       g.events.push({ type: 'impact', tower: b.id, hits: lv, kind: 'sap' });
-      if (raidLv && hid) { const k = Math.min(0.18, 0.06 * raidLv), loot = b.dustBank * k, lb = b.bricks * k, ls = b.stone * k; b.dustBank -= loot; b.bricks -= lb; b.stone -= ls; a.dustBank += loot; a.bricks += lb; a.stone += ls; a.raidPts += Math.round(loot); r.loot = { dust: loot, bricks: lb, stone: ls }; }
+      if (raidLv && hid && g.d >= (b.plunderSafe || 0)) { b.plunderSafe = g.d + 1.5; const k = Math.min(0.18, 0.06 * raidLv), loot = b.dustBank * k, lb = b.bricks * k, ls = b.stone * k; b.dustBank -= loot; b.bricks -= lb; b.stone -= ls; a.dustBank += loot; a.bricks += lb; a.stone += ls; a.raidPts += Math.round(loot); r.loot = { dust: loot, bricks: lb, stone: ls }; }
       if (a.isPlayer || b.isPlayer) log(g, `${a.name} undermined ${b.name}: foundation −${lv} (safe height ${Math.round(T.safe(b) * FH)} m).`, b.isPlayer ? 'hit' : 'raid', true);
       checkLiq(g, b, a);
     }
@@ -194,6 +195,8 @@
 
   /* ---------- bots ---------- */
   const PATTERN = ['Dust Nets', 'Quarry Hoist', 'Archer Gallery', 'Dust Nets', 'Brick Kiln', 'Barracks', 'Dust Nets', 'Lightning Rod', 'Quarry Hoist', 'Dust Nets', 'Gas Still', 'Archer Gallery'];
+  // Final push: in the last days a bold bot scaffolds past its usual limit if that gets its roof over the Moonline.
+  function finalPush(g, t) { if (g.d < SEASON - 4) return false; const need = Math.ceil(moonline(SEASON) / FH) - t.floors.length; return need > 0 && T.over(t) + need <= t.ai.maxOver + 3; }
   function botTick(g, t) {
     const ai = t.ai, h = T.height(t);
     // defend
@@ -206,18 +209,19 @@
       const n = t.floors.length + 1; let type = PATTERN[t.floors.length % PATTERN.length];
       if (type === 'Dust Nets' && h < 50) type = 'Quarry Hoist';
       if (n <= T.safe(t)) startBuild(g, t, type);
-      else if (ai.lev > 1 && T.over(t) < ai.maxOver && (T.hitsLeft(t) > 3 || ai.kind === 'degen')) { t.lev = ai.lev; startBuild(g, t, type); }
+      else if (ai.lev > 1 && (T.over(t) < ai.maxOver && (T.hitsLeft(t) > 3 || ai.kind === 'degen') || finalPush(g, t))) { t.lev = ai.lev; startBuild(g, t, type); }
       else startFoundation(g, t);
     }
     // army
     const reserve = T.floorCost(t.floors.length + 1);
     if (t.title === 'Moth' ? t.sap + t.sapOut < 4 && t.bricks > 100 : t.bricks > reserve.bricks * 1.6 && t.stone > reserve.stone * 1.3) train(g, t, t.title === 'Moth' || t.masons < 10 && g.rng() < 0.7 || g.rng() < 0.4 ? 'sap' : 'cat');
     if (t.nets < 1 && T.over(t) && t.stone > reserve.stone * 2) addNet(g, t);
+    if (T.over(t) && t.buttress < 4 && t.stone > reserve.stone + T.buttressCost(t).stone * 1.5) addButtress(g, t);
     // attack
     if (g.d >= ai.nextAtk) {
       ai.nextAtk = g.d + 0.5 + g.rng() * 0.9;
       let best = null, bs = -1;
-      g.towers.forEach((o) => { if (o === t) return; let s = T.height(o) / 100 + (T.over(o) ? 3 / Math.max(1, T.hitsLeft(o)) : 0) + (o.masons > t.masons * 3 ? 1 : 0) + (o.title === 'Wolf' ? 0.5 : o.title === 'Moon-Eater' ? 0.2 : o.title === 'Moth' && T.height(o) < 160 ? -1.5 : 0) + (o.isPlayer ? 0.5 : 0) - dist(t, o) * 0.15 + g.rng() * 1.2; if (s > bs) { bs = s; best = o; } });
+      g.towers.forEach((o) => { if (o === t) return; let s = T.height(o) / 100 + (T.over(o) ? 3 / Math.max(1, T.hitsLeft(o)) : 0) + (o.masons > t.masons * 3 ? 1 : 0) + (o.title === 'Wolf' ? 0 : o.title === 'Moon-Eater' ? 0.2 : o.title === 'Moth' && T.height(o) < 160 ? -1.5 : 0) + (o.isPlayer ? 0.5 : 0) - dist(t, o) * 0.15 + g.rng() * 1.2; if (s > bs) { bs = s; best = o; } });
       if (t.title === 'Moth') { best = g.towers.filter((o) => o !== t).reduce((x, o) => (o.bricks + o.stone + o.dustBank * 5) / (1 + dist(t, o) * 0.1) > (x.bricks + x.stone + x.dustBank * 5) / (1 + dist(t, x) * 0.1) ? o : x); if (!isNight(g.d)) ai.nextAtk = g.d + 0.08; }
       if (best) { if (t.sap >= T.minSap(t) && (t.title === 'Moth' ? isNight(g.d) : T.over(best) || g.rng() < 0.3)) attack(g, t, best, 'sap'); else if (t.cat >= 2) attack(g, t, best, 'cat'); }
     }
@@ -232,7 +236,7 @@
       g.towers.forEach((t) => {
         t.bricks += T.bricksPerDay(t) * dt; t.stone += T.stonePerDay(t) * dt; t.gas += T.gasPerDay(t) * dt;
         if (isNight(d)) t.dustRoof += T.dustPerNight(t, d) / (10 / 24) * dt;
-        t.dmg = Math.max(0, t.dmg - 6 * dt);
+        t.dmg = Math.max(0, t.dmg - 10 * dt);
         if (t.build) { t.build.left -= dt; if (t.build.left <= 0) { const b = t.build; t.build = null;
           if (b.kind === 'floor') { t.floors.push(b.type); t.ath = Math.max(t.ath, T.height(t)); if (t.isPlayer) log(g, `Floor ${t.floors.length} done: ${b.type} (${Math.round(T.height(t))} m).`, 'build', true); checkLiq(g, t, null, 'overextension'); }
           else { t.fLv++; if (t.isPlayer) log(g, `Foundation Lv ${t.fLv}: safe height ${Math.round(T.safe(t) * FH)} m.`, 'build', true); } } }
@@ -266,7 +270,7 @@
       if (g.d >= SEASON) { endSeason(g); return; }
     }
   }
-  function scoreOf(g, t) { const ml = moonline(SEASON); const landed = T.height(t) >= ml; const base = Math.round(t.dustBank + 20 * t.ath + t.topple + t.raidPts); return { landed, base, total: Math.round(base * (landed ? 1.25 : 1)) }; }
+  function scoreOf(g, t) { const ml = moonline(SEASON); const landed = T.height(t) >= ml; const base = Math.round(t.dustBank + 20 * t.ath + t.topple + t.raidPts); return { landed, base, total: Math.round(base * (landed ? LAND_BONUS : 1)) }; }
   function endSeason(g) {
     g.ended = true; g.d = SEASON;
     g.results = g.towers.map((t) => ({ t, ...scoreOf(g, t) })).sort((a, b) => b.total - a.total);
@@ -274,7 +278,7 @@
     log(g, 'PERIGEE NIGHT: snapshot taken. Towers above the Moonline land on the Moon.', 'info', true);
   }
 
-  const API = { FH, SEASON, PLOTS, TYPES, T, moonline, moonAge, isFull, isNew, isNight, hourOf, phaseName, titleOf, createGame, step, scoreOf, dist, gasFee,
+  const API = { FH, SEASON, PLOTS, LAND_BONUS, TYPES, T, moonline, moonAge, isFull, isNew, isNight, hourOf, phaseName, titleOf, createGame, step, scoreOf, dist, gasFee,
     act: { build: startBuild, foundation: startFoundation, buttress: addButtress, net: addNet, setLev, removeScaffold, train, attack, haul } };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MoonEngine = API;
 })(typeof window !== 'undefined' ? window : globalThis);
