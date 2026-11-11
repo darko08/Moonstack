@@ -159,7 +159,7 @@ button:focus-visible{outline:2px solid var(--lantern);outline-offset:2px}
       <li><b>Build floors.</b> Each one costs more (floor price). Dust Nets above 60 m catch Moondust at night, ×3 on the Full Moon.</li>
       <li><b>Your foundation sets the safe height.</b> To go higher, put up scaffolding: Leverage ×2, ×3 or ×5. You build faster, but hits hurt more.</li>
       <li><b>Margin Call</b> means 2 hits to Liquidation. Add a Buttress, hang Stop-Loss nets, or take the scaffold floors down.</li>
-      <li><b>Attack.</b> Click a tower. Catapults drain the integrity of scaffolded towers. Sappers lower the foundation, which lowers the safe height.</li>
+      <li><b>Attack.</b> Small titles (Moth, Toad, Hare) hit Wolf and Moon-Eater harder; a Moth raiding at night arrives unseen and plunders. Click a tower. Catapults drain the integrity of scaffolded towers. Sappers lower the foundation, which lowers the safe height.</li>
       <li><b>Tower Fall.</b> When a tower is liquidated, debris lands on nearby plots. Send haulers first.</li>
       <li><b>Perigee Night.</b> The Moonline sinks to 225 m. Towers above it land on the Moon: +25% score.</li>
     </ol>
@@ -300,12 +300,12 @@ button:focus-visible{outline:2px solid var(--lantern);outline-offset:2px}
     else if (!needLev && $('#msg').textContent.startsWith('At the safe')) $('#msg').textContent = '';
     // army
     $('#aHead').textContent = `Catapults ${p.cat}${p.catOut ? ' (+' + p.catOut + ' out)' : ''} · Sappers ${p.sap}${p.sapOut ? ' (+' + p.sapOut + ' out)' : ''} · cap ${T.cap(p)}`;
-    $('#tCat').disabled = p.cat + p.catOut >= T.cap(p) || !can(T.unitCost('cat')); $('#tSap').disabled = p.sap + p.sapOut >= T.cap(p) || !can(T.unitCost('sap'));
+    $('#tCat').disabled = p.cat + p.catOut >= T.cap(p) || !can(T.unitCost('cat', p)); $('#tSap').disabled = p.sap + p.sapOut >= T.cap(p) || !can(T.unitCost('sap', p));
     if (target) { const t = target, th = T.hitsLeft(t); $('#tName').textContent = `${t.name} · ${t.title}`;
       $('#tKv').innerHTML = `<span>Height / safe height</span><span>${Math.round(T.height(t))} m / ${Math.round(T.safe(t) * E.FH)} m</span><span>Scaffold</span><span>${T.over(t) ? T.over(t) + ' floors · ×' + t.lev : 'none'}</span><span>Hits to Liquidation</span><span>${th === Infinity ? '— (no scaffold)' : th}</span><span>Archer Galleries</span><span>${T.count(t, 'Archer Gallery')}</span><span>Moondust banked</span><span>${fmt(t.dustBank)}</span>`;
       const f1 = E.gasFee(g, p, t, Math.max(1, p.cat)), f2 = E.gasFee(g, p, t, Math.max(3, p.sap));
       $('#aCatC').textContent = `${p.cat} ready · gas fee ${f1}`; $('#aCat').disabled = p.cat < 1 || p.gas < f1;
-      $('#aSapC').textContent = `${p.sap} ready (min 3) · gas fee ${f2}`; $('#aSap').disabled = p.sap < 3 || p.gas < f2; }
+      $('#aSapC').textContent = `${p.sap} ready (min ${T.minSap(p)}) · gas fee ${f2}`; $('#aSap').disabled = p.sap < T.minSap(p) || p.gas < f2; }
     else { $('#tName').textContent = 'click a tower'; $('#tKv').innerHTML = ''; $('#aCat').disabled = $('#aSap').disabled = true; $('#aCatC').textContent = $('#aSapC').textContent = '–'; }
     $('#feeLbl').textContent = `ward gas ×${g.wardFee.toFixed(2)}`;
     // debris

@@ -30,3 +30,8 @@ Brojevi su podešeni za jednu kratku sesiju, pa se razlikuju od wikija:
 - Svi imaju osnovnih 150 Bricks dnevno, uz 40 po Mason-u.
 - Floor price: Bricks 200 × 1,09ⁿ, Stone 300 × 1,11ⁿ.
 - Nema senki, mostova, vazdušnih jedinica, tržišta ni koalicija.
+
+## Balans titula (posle prve runde)
+
+- **Wolf i Moon-Eater:** jedinice su skuplje (×1,2 i ×1,35), botovi ih češće biraju za metu, a male titule (Moth, Toad, Hare) imaju +12% šanse za pogodak protiv njih.
+- **Moth:** Dust Nets +25%, +2 mesta za jedinice, sapperi kreću već od 2. Noćni napad je Hidden Raid: +20% uspeha, manji gubici i pljačka 6% do 18% Bricks, Stone i Moondust-a mete. Botovi ga retko gađaju dok je ispod 160 m.

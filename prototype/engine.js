@@ -38,18 +38,20 @@
     integrity: (t) => T.maxInt(t) - T.stress(t) - t.dmg,
     dmgPerHit: (t) => T.over(t) ? 10 + 4 * t.lev : 8,
     hitsLeft: (t) => T.over(t) ? Math.max(0, Math.ceil(T.integrity(t) / T.dmgPerHit(t))) : Infinity,
-    cap: (t) => 2 + 2 * T.count(t, 'Barracks'),
+    cap: (t) => 2 + 2 * T.count(t, 'Barracks') + (t.title === 'Moth' ? 2 : 0),
+    minSap: (t) => t.title === 'Moth' ? 2 : 3,
     speedUp: (lev) => ({ 1: 1, 2: 1.5, 3: 2, 5: 3 }[lev] || 1),
     bricksPerDay: (t) => (150 + t.masons * 40) * (1 + 0.25 * T.count(t, 'Brick Kiln')),
     stonePerDay: (t) => 420 + 12 * t.masons + 190 * T.count(t, 'Quarry Hoist'),
     gasPerDay: (t) => 220 + 90 * T.count(t, 'Gas Still'),
-    dustPerNight: (t, d) => { const h = T.height(t); if (h < 60) return 0; return T.count(t, 'Dust Nets') * 4 * Math.pow(h / 100, 1.3) * (isFull(d) ? 3 : 1); },
+    dustPerNight: (t, d) => { const h = T.height(t); if (h < 60) return 0; return T.count(t, 'Dust Nets') * 4 * Math.pow(h / 100, 1.3) * (isFull(d) ? 3 : 1) * (t.title === 'Moth' ? 1.25 : 1); },
     floorCost: (n) => ({ bricks: Math.round(200 * Math.pow(1.09, n)), stone: Math.round(300 * Math.pow(1.11, n)) }),
     buildTime: (t, n) => 0.12 * Math.pow(1.045, n) / (n > T.safe(t) ? T.speedUp(t.lev) : 1),
     foundCost: (t) => ({ bricks: Math.round(400 * Math.pow(1.3, t.fLv - 4)), stone: Math.round(900 * Math.pow(1.45, t.fLv - 4)) }),
     buttressCost: (t) => ({ bricks: 0, stone: 500 * (t.buttress + 1) }),
     netCost: (t) => ({ bricks: 0, stone: 250 * (t.nets + 1) }),
-    unitCost: (kind) => kind === 'cat' ? { bricks: 150, stone: 200 } : { bricks: 80, stone: 60 },
+    upkeep: (t) => t && t.title === 'Moon-Eater' ? 1.35 : t && t.title === 'Wolf' ? 1.2 : 1,
+    unitCost: (kind, t) => { const m = T.upkeep(t); return kind === 'cat' ? { bricks: Math.round(150 * m), stone: Math.round(200 * m) } : { bricks: Math.round(80 * m), stone: Math.round(60 * m) }; },
   };
   const afford = (t, c) => t.bricks >= c.bricks && t.stone >= c.stone;
   const pay = (t, c) => { t.bricks -= c.bricks; t.stone -= c.stone; };
@@ -113,13 +115,13 @@
   }
   function train(g, t, kind) {
     const have = kind === 'cat' ? t.cat + t.catOut : t.sap + t.sapOut; if (have >= T.cap(t)) return 'Barracks full. Build Barracks.';
-    const c = T.unitCost(kind); if (!afford(t, c)) return 'Not enough Bricks or Stone.'; pay(t, c); if (kind === 'cat') t.cat++; else t.sap++; return null;
+    const c = T.unitCost(kind, t); if (!afford(t, c)) return 'Not enough Bricks or Stone.'; pay(t, c); if (kind === 'cat') t.cat++; else t.sap++; return null;
   }
   const gasFee = (g, a, b, n) => Math.round(30 * n * (1 + dist(a, b) * 0.5) * g.wardFee);
   function attack(g, a, b, kind) {
     if (a === b) return 'Pick another tower.';
     const n = kind === 'cat' ? a.cat : a.sap; if (n < 1) return kind === 'cat' ? 'No catapults at home.' : 'No sappers at home.';
-    if (kind === 'sap' && n < 3) return 'Need at least 3 sappers.';
+    if (kind === 'sap' && n < T.minSap(a)) return `Need at least ${T.minSap(a)} sappers.`;
     const fee = gasFee(g, a, b, n); if (a.gas < fee) return `Gas fee is ${fee}. Not enough Gas.`;
     a.gas -= fee; g.wardFee *= 1.125;
     if (kind === 'cat') { a.cat = 0; a.catOut += n; } else { a.sap = 0; a.sapOut += n; }
@@ -166,20 +168,25 @@
     const who = att ? att.name : (why || 'its own weight');
     log(g, `TOWER FALL: ${t.name} liquidated (${n} floor${n > 1 ? 's' : ''}) by ${who}. Debris on ${plots.length} plot${plots.length > 1 ? 's' : ''}.`, 'fall', t.isPlayer || (att && att.isPlayer));
   }
+  const SMALL = { Moth: 1, Toad: 1, Hare: 1 }, BIG = { Wolf: 1, 'Moon-Eater': 1 };
+  // Hidden Raid: a Moth that launches at night arrives unseen. Lantern bonus: small titles hit big ones harder.
+  const hidden = (a, r) => a.title === 'Moth' && isNight(r.launched);
+  const raidBonus = (g, a, b, r) => (hidden(a, r) ? 0.2 : 0) + (SMALL[a.title] && BIG[b.title] ? 0.12 : 0);
   function resolveRaid(g, r) {
     const a = g.towers[r.from], b = g.towers[r.to];
     if (r.kind === 'cat') {
-      const gal = T.count(b, 'Archer Gallery'); const p = Math.max(0.25, 0.72 - 0.06 * gal); let hits = 0;
+      const gal = T.count(b, 'Archer Gallery'); const p = Math.min(0.95, Math.max(0.25, 0.72 - 0.06 * gal) + raidBonus(g, a, b, r)); let hits = 0;
       for (let i = 0; i < r.n; i++) if (g.rng() < p) { hits++; applyHit(g, b, T.dmgPerHit(b), a); }
       let lost = 0; for (let i = 0; i < r.n; i++) if (g.rng() < 0.12 + 0.02 * gal) lost++;
       r.n -= lost; a.raidPts += hits * 5;
       g.events.push({ type: 'impact', tower: b.id, hits, kind: 'cat' });
       if (a.isPlayer || b.isPlayer) log(g, `${a.name} → ${b.name}: ${hits} catapult hit${hits === 1 ? '' : 's'}${lost ? `, ${lost} lost` : ''}.`, b.isPlayer ? 'hit' : 'raid', true);
     } else {
-      let succ = 0; for (let i = 0; i < r.n; i++) if (g.rng() < 0.5) succ++;
-      const lv = Math.floor(succ / 3); let lost = 0; for (let i = 0; i < r.n; i++) if (g.rng() < 0.3) lost++; r.n -= lost;
+      const hid = hidden(a, r); let succ = 0; for (let i = 0; i < r.n; i++) if (g.rng() < 0.5 + raidBonus(g, a, b, r)) succ++;
+      const lv = Math.floor(succ / 3), raidLv = Math.floor(succ / T.minSap(a)); let lost = 0; for (let i = 0; i < r.n; i++) if (g.rng() < (hid ? 0.12 : 0.3)) lost++; r.n -= lost;
       if (lv) { b.fLv = Math.max(1, b.fLv - lv); a.raidPts += lv * 20; }
       g.events.push({ type: 'impact', tower: b.id, hits: lv, kind: 'sap' });
+      if (raidLv && hid) { const k = Math.min(0.18, 0.06 * raidLv), loot = b.dustBank * k, lb = b.bricks * k, ls = b.stone * k; b.dustBank -= loot; b.bricks -= lb; b.stone -= ls; a.dustBank += loot; a.bricks += lb; a.stone += ls; a.raidPts += Math.round(loot); r.loot = { dust: loot, bricks: lb, stone: ls }; }
       if (a.isPlayer || b.isPlayer) log(g, `${a.name} undermined ${b.name}: foundation −${lv} (safe height ${Math.round(T.safe(b) * FH)} m).`, b.isPlayer ? 'hit' : 'raid', true);
       checkLiq(g, b, a);
     }
@@ -204,14 +211,15 @@
     }
     // army
     const reserve = T.floorCost(t.floors.length + 1);
-    if (t.bricks > reserve.bricks * 1.6 && t.stone > reserve.stone * 1.3) train(g, t, t.masons < 10 || g.rng() < 0.4 ? 'sap' : 'cat');
+    if (t.title === 'Moth' ? t.sap + t.sapOut < 4 && t.bricks > 100 : t.bricks > reserve.bricks * 1.6 && t.stone > reserve.stone * 1.3) train(g, t, t.title === 'Moth' || t.masons < 10 && g.rng() < 0.7 || g.rng() < 0.4 ? 'sap' : 'cat');
     if (t.nets < 1 && T.over(t) && t.stone > reserve.stone * 2) addNet(g, t);
     // attack
     if (g.d >= ai.nextAtk) {
       ai.nextAtk = g.d + 0.5 + g.rng() * 0.9;
       let best = null, bs = -1;
-      g.towers.forEach((o) => { if (o === t) return; let s = T.height(o) / 100 + (T.over(o) ? 3 / Math.max(1, T.hitsLeft(o)) : 0) + (o.masons > t.masons * 3 ? 1 : 0) + (o.isPlayer ? 0.5 : 0) - dist(t, o) * 0.15 + g.rng() * 1.2; if (s > bs) { bs = s; best = o; } });
-      if (best) { if (t.sap >= 3 && (T.over(best) || g.rng() < 0.3)) attack(g, t, best, 'sap'); else if (t.cat >= 2) attack(g, t, best, 'cat'); }
+      g.towers.forEach((o) => { if (o === t) return; let s = T.height(o) / 100 + (T.over(o) ? 3 / Math.max(1, T.hitsLeft(o)) : 0) + (o.masons > t.masons * 3 ? 1 : 0) + (o.title === 'Wolf' ? 0.5 : o.title === 'Moon-Eater' ? 0.2 : o.title === 'Moth' && T.height(o) < 160 ? -1.5 : 0) + (o.isPlayer ? 0.5 : 0) - dist(t, o) * 0.15 + g.rng() * 1.2; if (s > bs) { bs = s; best = o; } });
+      if (t.title === 'Moth') { best = g.towers.filter((o) => o !== t).reduce((x, o) => (o.bricks + o.stone + o.dustBank * 5) / (1 + dist(t, o) * 0.1) > (x.bricks + x.stone + x.dustBank * 5) / (1 + dist(t, x) * 0.1) ? o : x); if (!isNight(g.d)) ai.nextAtk = g.d + 0.08; }
+      if (best) { if (t.sap >= T.minSap(t) && (t.title === 'Moth' ? isNight(g.d) : T.over(best) || g.rng() < 0.3)) attack(g, t, best, 'sap'); else if (t.cat >= 2) attack(g, t, best, 'cat'); }
     }
   }
 
